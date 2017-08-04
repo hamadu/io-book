@@ -21,7 +21,7 @@
 | Shared | 共有ライブラリ(libc等)が配置される領域 |
 | Stack  | ローカル変数や関数の引数、関数からの戻り先が置かれる領域 |
 
-これらは、以下の図のように配置されている。このうち、Text領域は同じプログラムが走るときは共有される。Shared領域は、同じライブラリが使われるプロセス同士で共有される。
+これらは、概ね以下の図のように配置されている。このうち、Text領域は同じプログラムが走るときは共有される。Shared領域は、同じライブラリが使われるプロセス同士で共有される。
 
 ![](/assets/mem.png)
 
@@ -142,11 +142,46 @@ waitpid関数を使うと、子プロセスの状態変化を待つことがで�
 
 `pid` には対象のプロセス、`options` には、`status` に状態を格納する変数へのポインタを渡す。
 
-例えば親プロセスが fork で生成した子プロセスの終了を待ちたいときは、
+例えば親プロセスが fork で生成した子プロセスの終了を待ちたいときは、次のように親側で fork 関数から返ってきた子のプロセスIDを使って waitpid 関数を呼び出せば良い。
 
 ```c
+#include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
+void print_error_and_exit() {
+  printf("error(%d): %s\n", errno, strerror(errno));
+  exit(1);
+}
+
+int main(int argc, char* argv[]) {
+  int status;
+  pid_t result = fork();
+  if (result == -1) {
+    print_error_and_exit();
+  }
+
+  if (result == 0) {
+    printf("hi. this is child process\n");
+  } else {
+    waitpid(result, &status, 0);
+    printf("hi. this is parent process\n");
+  }
+  return 0;
+}
 ```
+
+このプログラムを実行すると、以下のように表示される。
+
+```sh
+$ ./a.out
+hi. this is child process
+hi. this is parent process
+```
+
+
 
 ##　forkとファイルディスクリプタ
 

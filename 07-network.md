@@ -6,11 +6,12 @@
 
 ## ソケット
 
-サーバ側でも、クライアント側でも、まずは通信を行うためのソケットを作る必要がある。ソケットとは、
+サーバ側でも、クライアント側でも、まずは通信を行うためのソケットを作る必要がある。ソケットとは通信方式を取り決めたインタフェースで、????
 
-ソケットを作るには、socket関数を用いる。
 
 ### socket
+
+ソケットを作成するには、socket関数を用いる。
 
 > ```c
 > #include <sys/socket.h>
@@ -19,8 +20,22 @@
 > ```
 > [Man page of SOCKET](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/socket.2.html)
 
-`domain` には通信に使うプロトコル、`type` には通信方式、
-成功するとソケットを示すファイルディスクリプタが返る。
+`domain` には通信に使うプロトコルを表す。例えば以下の値が利用可能である。
+
+| 名前 | プロトコル |
+| :--- | :--- |
+| AF_INET | IPv4 |
+| AF_INET6 | IPv6 |
+| AF_UNIX | ローカルホスト内での通信 |
+
+`type` には通信方式を指定する。
+
+| 名前 | 通信方式 |
+| :--- | :--- |
+| SOCK_STREAM | TCP |
+| SOCK_DGRAM | UDP |
+
+`protocol` には　`domain` に指定した通信ドメイン固有のプロトコル（もしあれば）を指定する。作成に成功すると、ソケットディスクリプタという通信を一意に識別する数値が帰ってくる。ファイルの読み書きと同じように、通信相手からデータを読んだり、データ送ったりする関数を呼ぶ際にこの値を渡す。また、後述するが `read` や `write` 関数にソケットディスクリプタを渡せば、データの送受信に使うこともできる。
 
 ## 接続・サーバ編
 
@@ -28,15 +43,19 @@
 
 ### bind
 
+`bind` 関数は、ソケットにアドレスを割り当てる。
+
 > ```c
 > #include <sys/socket.h>
 > int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 > ```
 > [Man page of BIND](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/bind.2.html)
 
-`sockfd` には `socket` で作成したファイルディスクリプタ、`addr` にはアドレス、`addrlen` にはアドレス構造体の大きさを指定する。
+`sockfd` には `socket` で作成したファイルディスクリプタ、`addr` にはアドレス、`addrlen` にはアドレス構造体の大きさを指定する。`addr` に指定する構造体は、ソケットを作る時に指定したアドレスファミリーに依存する。例えば、
 
 ### listen
+
+`listen` 関数は、指定したソケットを待ち受け状態にする。
 
 > ```c
 > #include <sys/socket.h>
@@ -49,6 +68,8 @@
 
 ### accept
 
+`accept` 関数は、待ち受けキューに溜まっている接続要求を受け入れ、クライアントと通信可能なソケットディスクリプタを作成する。
+
 > ```c
 > #include <sys/socket.h>
 >
@@ -56,11 +77,11 @@
 > ```
 > [Man page of ACCEPT](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/accept.2.html)
 
-`sockfd` には `socket` で作成したファイルディスクリプタを指定する。成功した場合、`addr` および `addrlen` に接続相手のアドレス情報が、関数からはソケットファイルディスクリプタが返る。このソケットはクライアントと接続されている状態であり、`read` または `write` で読み書き要求を行うことができる。
+`sockfd` には `socket` で作成したファイルディスクリプタを指定する。成功した場合、`addr` および `addrlen` に接続相手のアドレス情報が、関数からはソケットファイルディスクリプタが返る。このソケットはクライアントと接続されている状態であり、`read` および `write` または後述する関数群を用いてデータの送受信を行うことができる。
 
 ## 接続・クライアント編
 
-クライアントは、接続先が分かってるはずのサーバのアドレスを指定して `connect` 関数を呼ぶことでサーバと接続できる。
+クライアントは、サーバと同じ通信方式のソケットを作成し、サーバのアドレスを指定して `connect` 関数を呼ぶことでサーバと接続できる。
 
 ### connect
 
@@ -75,7 +96,7 @@
 
 ## データの送受信
 
-ソケットファイルディスクリプタを使って、
+通信が確立した後は、ソケットディスクリプタを使ってデータの送受信が可能になる。1章で紹介した `read` 関数や `write` 関数も使えるが、詳細なオプションを指定できる関数が用意されている。
 
 ### send
 
@@ -99,7 +120,98 @@
 
 ## 例
 
-###
+さて、ここまで紹介した関数を使ってサーバ-クライアント間の通信を行うプログラムを作ってみよう。今回はクライアントから接続があると、ランダムなメッセージを送り返して通信を終了させるサーバを書こう。
+
+### サーバサイド
+
+```c
+
+```
+
+まず、待ち受け用のアドレスを指定する。今回はIPv4での接続を待ち受けるため、構造体 `sockaddr_in` に情報を詰める。
+
+```c
+struct sockaddr_in addr;
+memset(&addr, 0, sizeof(addr));
+addr.sin_family = AF_INET;
+addr.sin_port = htons(8080);
+inet_aton("127.0.0.1", &addr.sin_addr);
+```
+
+まず、ソケットを作成する。アドレスファミリーには `AF_INET`(IPv4)、通信方式には `SOCK_STREAM`(TCP) を指定する。
+
+```c
+int fd = socket(AF_INET, SOCK_STREAM, 0);
+if (fd == -1) {
+  print_error_and_exit();
+}
+```
+
+次に、待ち受け用のアドレスを設定して、`bind` でソケットディスクリプタに紐付ける。今回はIPv4での接続を待ち受けるため、構造体 `struct sockaddr_in` に情報を詰める。`sin_family`, `sin_port`, `sin_addr` にはそれぞれアドレスファミリー、ポート番号、IPアドレスを指定する。
+
+bind の第二引数には作成したアドレス情報を渡すのだが、`struct sockaddr *` を渡す必要があるのでキャストしている。。
+
+```c
+struct sockaddr_in addr;
+memset(&addr, 0, sizeof(addr));
+addr.sin_family = AF_INET;
+addr.sin_port = htons(8080);
+inet_aton("127.0.0.1", &addr.sin_addr);
+
+if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+  print_error_and_exit();
+}
+```
+
+次に、`listen` を呼び出してソケットを待ち受け状態にする。ここではキューの長さを適当に100に設定している。
+
+```c
+if (listen(fd, 100) < 0) {
+  print_error_and_exit();
+}
+```
+
+最後に、クライアントからの接続を `accept` で受け、クライアント向けのソケットディスクリプタを受け取り、それを使ってデータを送信する。ちなみに `accept` 関数は接続がない場合処理をブロックするので、この実装のままだと同時に1クライアントしか処理ができない。
 
 
-## UNIXドメインソケット
+```c
+while (1) {
+  int peerFd = accept(fd, NULL, NULL);
+  char *data = "boom";
+  write(peerFd, data, strlen(data));
+  close(peerFd);
+}
+```
+
+### クライアントサイド
+
+まず、ソケットを作成し、接続先のアドレスを構造体 `sockaddr_in` に詰める。
+
+```c
+int fd = socket(AF_INET, SOCK_STREAM, 0);
+
+struct sockaddr_in addr;
+memset(&addr, 0, sizeof(addr));
+addr.sin_family = AF_INET;
+addr.sin_port = htons(8080);
+inet_aton("127.0.0.1", &addr.sin_addr);
+```
+
+`connect` 関数を呼んでサーバに接続する。接続に成功すると、ソケットディスクリプタを使って読み書きが利用可能になる。
+
+```c
+if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+  print_error_and_exit();
+}
+```
+
+サーバから送られたデータを読む。
+
+```c
+
+```
+
+
+### まとめ
+
+次章では

@@ -4,11 +4,10 @@
 
 ## パイプ
 
-パイプとは\(読み込み口,書き込み口\)のファイルディスクリプタの組である。片方にデータを入れると、もう片方から読み出せるようになる。
+パイプは単方向のデータの流れ道である。片方にデータを入れると、もう片方から読み出せるようになる。具体的には、\(読み込み口,書き込み口\)のファイルディスクリプタの組として実装されている。
 
-> [Man page of PIPE](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/pipe.2.html)
+> [Man page of PIPE](https://linuxjm.osdn.jp/html/LDP_man-pages/man7/pipe.7.html)
 
-forkと組み合わせることで、子プロセスとデータをやり取りできる。
 
 ### pipe
 
@@ -22,40 +21,143 @@ forkと組み合わせることで、子プロセスとデータをやり取り�
 pipeを呼び出すと、入力用、出力用のファイルディスクリプタの組が返される。出力用のファイルディスクリプタに対して `write` を呼び出すことで、入力用から `read` でそのデータを読み込める。
 
 
-### 例
+このままだと、単に同じプロセスの片方から `write` して、別の箇所で `read` でそのデータを読むだけだが、`fork` と組み合わせることで異なるプロセス間でのデータのやり取り、プロセス間通信が実現できる。
+
+#### 例
 
 `pipe` と `fork` を使ってデータのやりとりを行う例を示す。
 
 ```c
+#include <unistd.h>
+#include <stdio.h>
 
+int main(int argc, char* argv[]) {
+  int pipefd[2];
+  pipe(pipefd);
+
+  int readFd = pipefd[0];
+  int writeFd = pipefd[1];
+
+  pid_t result = fork();
+  if (result == 0) {
+    close(readFd);
+    char data[100];
+    for (int i = 0 ; i < 100 ; i++) {
+      data[i] = (char)('a' + (i % 26));
+    }
+    write(writeFd, data, 100);
+  } else {
+    close(writeFd);
+    char buf[5];
+    while (1) {
+      int num = read(readFd, buf, 5);
+      if (num == 0) {
+        break;
+      }
+      printf("%s\n", buf);
+    }
+  }
+  return 0;
+}
 ```
 
 まず、親プロセス側で `pipe` を呼び出してファイルディスクリプタの組を作る。その後、`fork` して子プロセスを作る。子プロセス側では、データ列を入力口に100バイト書き込む。親プロセス側では、出力口からデータを5バイトずつ読み出して、改行しながら表示する。
 
+fork後、子プロセスで読み込み側、親プロセスで書き込み側のファイルディスクリプタをクローズしている理由は、それぞれにとって
+
+ここで、親プロセス側の `read` 関数は入力をブロックすることに注意しよう。
+
+#### 例2
+
+子プロセスが別のコマンドを実行する際、その出力結果を親プロセス側で受け取りたい場合がよくある。親プロセスでパイプを作成し、書き込み口のファイルディスクリプタを子プロセスの標準出力としてコピーすることで、親プロセスは子プロセスの標準出力の内容をパイプから読むことができる。
+
+
+実装は例えば次のようにする。ここでは、`/bin/ls` の実行結果を親側で受け取り、5文字ごとに改行して表示している。
+
+```c
+#include <unistd.h>
+#include <stdio.h>
+
+int main(int argc, char* argv[]) {
+  int pipefd[2];
+  pipe(pipefd);
+
+  int readFd = pipefd[0];
+  int writeFd = pipefd[1];
+
+  pid_t result = fork();
+  if (result == 0) {
+    close(readFd);
+    dup2(writeFd, STDOUT_FILENO);
+    execl("/bin/ls", "al", (char *)NULL);
+  } else {
+    close(writeFd);
+    char buf[5];
+    while (1) {
+      int num = read(readFd, buf, 5);
+      if (num == 0) {
+        break;
+      }
+      printf("%s\n", buf);
+    }
+  }
+  return 0;
+}
+```
+
+**TODO: 親プロセス側のclose(writeFd)をサボった場合の説明**
+
 ### popen
 
-上に示した pipe してからの fork、その後 exec はよくあるパターンなので便利な関数が用意されている。
+例2で示したような pipe で作ったファイルディスクリプタを子プロセスにコピーして exec するパターンは頻出なので便利な関数が用意されている。
 
-```
-```
+> ```c
+> #include <stdio.h>
+>
+> FILE *popen(const char *command, const char *type);
+> ```
 > [Man page of POPEN](https://linuxjm.osdn.jp/html/LDP_man-pages/man3/popen.3.html)
 
+popen 関数を実行すると、パイプを作成し、フォークをして、子プロセス側で `/bin/sh` に `command` で指定したコマンドを実行する。`type` には読み込み・書き出しのどちらかを指定する。成功するとストリームオブジェクトが返ってくるので、ストリーム操作関数を用いて読み込み・書き込み操作が行える。
 
+#### 例
 
+```c
+#include <unistd.h>
+#include <stdio.h>
 
-### シェルにおけるパイプ
+int swapcase(int ch) {
+  if ('a' <= ch && ch <= 'z') {
+    return 'A' + (ch - 'a');
+  } else if ('A' <= ch && ch <= 'Z') {
+    return 'a' + (ch - 'A');
+  } else {
+    return ch;
+  }
+}
 
-bashでは、あるコマンドの標準出力を、別のコマンドの標準入力に渡すのにパイプを用いることができる。
-
-```sh
-ls -al dir | grep hoge
+int main(int argc, char* argv[]) {
+  FILE* reader = popen("/bin/ls -al", "r");
+  while (1) {
+    int ch = fgetc(reader);
+    if (ch == EOF) {
+      break;
+    }
+    fputc(swapcase(ch), stdout);
+  }
+  pclose(reader);
+  return 0;
+}
 ```
+
+この例では、`/bin/ls -al` の実行結果を大文字／小文字を逆転させて表示している。コマンドの標準出力からデータを読むため、`popen` の第二引数には 「読み込み」を表す `r` を渡す。
+
 
 ## FIFO
 
 FIFOとは、ファイルシステム上に作成される特殊なパイプである。パス名を指定して作成でき、複数のプロセスからそのファイルを通じてデータのやり取りが可能になる。名前付きパイプと呼ばれることもある。
 
-通常のパイプと異なり、パス名さえ取り決めておけば親子関係にないプロセス間でも通信が可能になる。
+通常のパイプと異なり、パス名さえ事前に取り決めておけば親子関係にないプロセス間でも通信が可能になる。
 
 ### mkfifo
 

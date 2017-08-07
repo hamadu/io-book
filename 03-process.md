@@ -124,6 +124,38 @@ forkを実行すると値が2回返ったり、データがコピーされる仕
 
 `path` には実行したいプログラムのパス、`arg` にはそのプログラムに与える引数を指定する。`execl` の呼び出しに成功した場合、値は返却されず、実行中のプロセスのテキストセグメントが新しいもので置き換わる。
 
+#### 例
+
+子プロセスで `ls` を実行する例を示す。
+
+```c
+#include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+void print_error_and_exit() {
+  printf("error(%d): %s\n", errno, strerror(errno));
+  exit(1);
+}
+
+int main(int argc, char* argv[]) {
+  pid_t result = fork();
+  if (result == -1) {
+    print_error_and_exit();
+  }
+
+  if (result == 0) {
+    execl("/bin/ls", ".", (char*)NULL);
+  } else {
+    sleep(3);
+    printf("hi. this is parent process\n");
+  }
+  return 0;
+}
+```
+
 ## プロセスの待ち合わせ
 
 上の例では子プロセスの実行を待つのに `sleep` を用いたが、推奨される使い方ではない。`sleep` 中に他のプロセスが実行されていて、sleep の指定秒数経過後に戻ってきた場合、次に走るのは親か子かの保証はできない。（プロセスの実行状況とスケジューラのアルゴリズムに依存する）そのため、子プロセスの状態を監視・通知できる機能が用意されている。

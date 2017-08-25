@@ -8,7 +8,7 @@
 - データ領域
 - プロセスエントリテーブル
 
-実行中のスレッドの切り替えはカーネルにより行われる。
+実行中のスレッドの切り替えはカーネル(OS)により行われる。
 
 ### pthread_create
 
@@ -24,7 +24,6 @@
 
 `start_routine` には作ったスレッドで実行したい関数を指定する。`arg` にはその関数の引数を渡せる。作成されたスレッドは `thread` に代入される。`attr` にはスレッドのオプションを指定する。
 
-
 ### 例: スレッドとヒープ・データ領域
 
 スレッド間で共有する情報とそうでないものを確かめるため、いくつか実験をしよう。
@@ -37,20 +36,20 @@
 int global_num = 100;
 
 void* another(void *arg) {
-global_num = 200;
-printf("hello from another thread: %d\n", global_num);
-global_num = 300;
+  global_num = 200;
+  printf("hello from another thread: %d\n", global_num);
+  global_num = 300;
 }
 
 int main(int argc, char* argv[]) {
-pthread_t thread;
-pthread_create(&thread, NULL, *another, NULL);
+  pthread_t thread;
+  pthread_create(&thread, NULL, *another, NULL);
 
-sleep(3);
+  sleep(3);
 
-printf("hello from main thread: %d\n", global_num);
+  printf("hello from main thread: %d\n", global_num);
 
-return 0;
+  return 0;
 }
 ```
 
@@ -68,39 +67,36 @@ return 0;
 ## スレッドとファイル操作
 
 
-
 ### 例: スレッドとファイル操作
 
 forkの節で実験したのと同様に、別々のスレッドで同じファイルを開いたときの挙動について確認しておこう。まず、ファイルを開く前に別スレッドを作り、各スレッドの処理の中でファイル操作を行う場合。
 
-```
+```c
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <pthread.h>
 
 void* another(void *arg) {
-int fd = open("./src.txt", O_RDONLY);
-char buf[6];
-read(fd, buf, 6);
-
-printf("hello from another thread: %d, %s\n", fd, buf);
+  int fd = open("./src.txt", O_RDONLY);
+  char buf[6];
+  read(fd, buf, 6);
+  printf("hello from another thread: %d, %s\n", fd, buf);
 }
 
 int main(int argc, char* argv[]) {
+  pthread_t thread;
+  pthread_create(&thread, NULL, *another, NULL);
 
-pthread_t thread;
-pthread_create(&thread, NULL, *another, NULL);
+  sleep(3);
 
-sleep(3);
+  int fd = open("./src.txt", O_RDONLY);
+  char buf[6];
+  read(fd, buf, 6);
 
-int fd = open("./src.txt", O_RDONLY);
-char buf[6];
-read(fd, buf, 6);
+  printf("hello from main thread : %d, %s\n", fd, buf);
 
-printf("hello from main thread : %d, %s\n", fd, buf);
-
-return 0;
+  return 0;
 }
 ```
 
@@ -125,24 +121,24 @@ fork版と同等の結果を得た。ファイルディスクリプタも別々�
 int fd;
 
 void* another(void *arg) {
-char buf[6];
-read(fd, buf, 6);
-printf("hello from another thread: %s\n", buf);
+  char buf[6];
+  read(fd, buf, 6);
+  printf("hello from another thread: %s\n", buf);
 }
 
 int main(int argc, char* argv[]) {
-fd = open("./src.txt", O_RDONLY);
+  fd = open("./src.txt", O_RDONLY);
 
-pthread_t thread;
-pthread_create(&thread, NULL, *another, NULL);
+  pthread_t thread;
+  pthread_create(&thread, NULL, *another, NULL);
 
-sleep(3);
-char buf[6];
-read(fd, buf, 6);
+  sleep(3);
+  char buf[6];
+  read(fd, buf, 6);
 
-printf("hello from main thread : %s\n", buf);
+  printf("hello from main thread : %s\n", buf);
 
-return 0;
+  return 0;
 }
 ```
 
@@ -157,7 +153,7 @@ hi. this is parent process : ghijkl
 
 ## 余談: Linuxにおけるスレッドの実装
 
-内部的には、clone() システムコールが使われている。clone とは、fork の亜種で子プロセスを作るシステムコールである。fork と異なる点は、子プロセスで実行する関数を引数で指定できることと、親と何を共有するかを細かく指定できることである。詳しくはマニュアルを参照。
+Linuxにおけるスレッドの実装について軽く触れておく。内部的には、`clone()` システムコールが使われている。`clone` とは、`fork` 　で子プロセスを作るシステムコールである。`fork` と異なる点は、子プロセスで実行する関数を引数で指定できることと、親と何を共有するかを細かく指定できることである。詳しくはマニュアルを参照。
 
 > ```
 > #include <sched.h>
@@ -168,7 +164,7 @@ hi. this is parent process : ghijkl
 > ```
 > [Man page of CLONE](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/clone.2.html)
 
-したがって、Linuxにおけるスレッドの実行スケジューリングの仕組みは、プロセスのそれと等しい。
+また、`fork` の内部の実装にも `clone` が使われている。Linuxにおけるスレッドとはプロセスと基本的に変わりはなく、実際プロセスとスレッドは同じ仕組みでスケジューリングされる。そのため、Linuxにおけるスレッドは通常のプロセスに対して軽量プロセス / Lightweight processと呼ばれることがある。
 
 ## 排他制御
 

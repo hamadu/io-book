@@ -7,12 +7,11 @@
 なので、実際にはクライアントの処理そのものは、待受処理とは異なるプロセスもしくはスレッドで行う等の策が取られる。しかし、それでもI/Oの処理は「待ち」が発生するため、ボトルネックになりがちである。本章では、同時接続可能なechoサーバの実装を通じて、イベント駆動I/Oの仕組みを紹介する。
 
 
-## 例: echoサーバ
+echoサーバとは、以下の機能を実現するサーバプログラムである。
 
 
-
-```c
-```
+- 複数のクライアントからの接続を待ち受ける。
+- クライアントから文字列が送られたら、それをそのまま返す。
 
 
 ## 多重I/OとC10K問題
@@ -36,7 +35,7 @@
 
 ### epoll_create(2)
 
-`epoll` は複数のファイルディスクリプタを管理する。まず初期化をする。
+`epoll` は複数のファイルディスクリプタを管理するオブジェクトである。`epoll` を使うには、まず初期化をする。
 
 > ```c
 > #include <sys/epoll.h>
@@ -45,12 +44,12 @@
 > ```
 > [Man page of EPOLL_CREATE](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/epoll_create.2.html)
 
-呼び出しに成功すると、ファイルディスクリプタが返される。
+呼び出しに成功すると、`epoll` オブジェクトを表すファイルディスクリプタが返される。
 
 
 ### epoll_ctl(2)
 
-`epoll_ctl` 関数を使うと、指定したファイルディスクリプタをepollオブジェクトに登録したり、できる。
+`epoll_ctl` 関数を使うと、指定したファイルディスクリプタをepollオブジェクトに登録したり、外したりできる。
 
 > ```c
 > #include <sys/epoll.h>
@@ -62,17 +61,51 @@
 
 `epfd` には `epoll_create` で作成した epollオブジェクトのファイルディスクリプタを渡す。`fd` には対象のファイルディスクリプタを渡す。`op` は操作内容を指定する。
 
-|||
+| op | event | 説明 |
+| :--- | :--- | :--- |
+| EPOLL_CTL_ADD | `fd` で指定したファイルディスクリプタを `epoll` オブジェクトに追加する。`event` には監視内容を指定する。 |
+| EPOLL_CTL_MOD | `event` をファイルディスクリプタ `fd` に関連付ける。 |
+| EPOLL_CTL_DEL | `fd` で指定したファイルディスクリプタを `epoll` オブジェクトから外す。 |
 
-たとえば、ファイルを追加する時は次のようにする。
+`epoll_event` 構造体の内容は以下の通り。
+
+> ```c
+> typedef union epoll_data {
+>   void        *ptr;
+>   int          fd;
+>   uint32_t     u32;
+>   uint64_t     u64;
+> } epoll_data_t;
+>
+> struct epoll_event {
+>   uint32_t     events;      /* epoll イベント */
+>   epoll_data_t data;        /* ユーザーデータ変数 */
+> };
+> ```
+> [Man page of EPOLL_CTL](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/epoll_ctl.2.html)
+
+
+`events` には監視したいイベントをビットの論理和で表す。
+
+| events | 説明 |
+| :--- | :--- |
+| EPOLLIN | 関連付けられたファイルに対して、`read` 操作が可能である。 |
+| EPOLLOUT | 関連付けられたファイルに対して、`write` 操作が可能である。 |
+
+たとえば、ファイル `fd` の読み込み操作を epollオブジェクト `epollfd` に監視させる時は次のようにする。
 
 ```c
-
+struct epoll_event ev;
+ev.events = EPOLLIN;
+ev.data.fd = fd;
+if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sock, &ev) == -1) {
+  // error
+}
 ```
 
 ### epoll_wait(2)
 
-登録済のファイルディスクリプタからのI/Oイベントを待つ。
+登録済のファイルディスクリプタからのI/Oイベントを待つには、`epoll_wait` を使う。
 
 > ```c
 > #include <sys/epoll.h>
@@ -81,17 +114,29 @@
 > ```
 > [Man page of EPOLL_WAIT](https://linuxjm.osdn.jp/html/LDP_man-pages/man2/epoll_wait.2.html)
 
-`epfd` には epollオブジェクトのファイルディスクリプタを渡す。
+`epfd` には epoll オブジェクトのファイルディスクリプタ、`events` にはイベント内容を格納する領域を渡す。`maxevents` には最大イベント数、`timeout` は最大待ち時間を指定する。呼び出すと、イベントの個数が帰ってくる。
 
+`epoll_wait` の大まかな使用例を以下に示す。
 
+```c
+#define MAX_EVENTS 10
 
+struct epoll_event events[MAX_EVENTS];
+while (1) {
+  int nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+  if (ndfs == -1) {
+    // error
+  }
+  for (int i = 0 ; i < nfds ; i++) {
+    int fd = events[i].data.fd;
+    // process fd here
+  }
+}
+```
 
 ## 例: echoサーバ(epoll版)
 
 
 ```c
+
 ```
-
-
-
-

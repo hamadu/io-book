@@ -121,20 +121,51 @@
 
 さて、ここまで紹介した関数を使ってサーバ-クライアント間の通信を行うプログラムを作ってみよう。今回はクライアントから接続があると、ランダムなメッセージを送り返して通信を終了させるサーバを書こう。
 
-### サーバサイド
+### サーバプログラム
 
 ```c
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-```
+void print_error_and_exit() {
+  printf("error(%d): %s\n", errno, strerror(errno));
+  exit(1);
+}
 
-まず、待ち受け用のアドレスを指定する。今回はIPv4での接続を待ち受けるため、構造体 `sockaddr_in` に情報を詰める。
+int main(int argc, char* argv[]) {
+  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd == -1) {
+    print_error_and_exit();
+  }
 
-```c
-struct sockaddr_in addr;
-memset(&addr, 0, sizeof(addr));
-addr.sin_family = AF_INET;
-addr.sin_port = htons(8080);
-inet_aton("127.0.0.1", &addr.sin_addr);
+  struct sockaddr_in addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(8080);
+  inet_aton("127.0.0.1", &addr.sin_addr);
+  if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    print_error_and_exit();
+  }
+
+  if (listen(fd, 100) < 0) {
+    print_error_and_exit();
+  }
+
+  while (1) {
+    int peerFd = accept(fd, NULL, NULL);
+    char *data = "boom";
+    write(peerFd, data, strlen(data));
+    close(peerFd);
+  }
+
+  return 0;
+}
 ```
 
 まず、ソケットを作成する。アドレスファミリーには `AF_INET`(IPv4)、通信方式には `SOCK_STREAM`(TCP) を指定する。
@@ -181,7 +212,43 @@ while (1) {
 }
 ```
 
-### クライアントサイド
+### クライアントプログラム
+
+```c
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void print_error_and_exit() {
+  printf("error(%d): %s\n", errno, strerror(errno));
+  exit(1);
+}
+
+int main(int argc, char* argv[]) {
+  int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+  struct sockaddr_un addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  strcpy(addr.sun_path, "foo.sock");
+  if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    print_error_and_exit();
+  }
+
+  char buf[120];
+  read(fd, buf, 120);
+  printf("== response from server ==\n%s\n", buf);
+
+  close(fd);
+
+  return 0;
+}
+```
 
 まず、ソケットを作成し、接続先のアドレスを構造体 `sockaddr_in` に詰める。
 
@@ -203,10 +270,14 @@ if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 }
 ```
 
-サーバから送られたデータを読む。
+最後に、サーバから送られたデータを読んでその内容を出力する。その後、`close(fd)` を呼び出して通信を終了する。
 
 ```c
+char buf[120];
+read(fd, buf, 120);
+printf("== response from server ==\n%s\n", buf);
 
+close(fd);
 ```
 
 

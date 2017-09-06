@@ -1,12 +1,10 @@
 # ネットワークI/O
 
-本章では、同一ホストから世界を広げ、ネットワーク越しのコンピュータとデータをやり取りする方法について説明する。
-ここで紹介するのは、普段我々が使っているプログラムが内部で用いている。
+本章では、同一ホストから世界を広げ、ネットワーク越しのコンピュータのプロセスとデータをやり取りする方法について説明する。
 
 ## ソケット
 
 サーバ側でも、クライアント側でも、まずは通信を行うためのソケットを作る必要がある。ソケットとは通信方式を取り決めたインタフェースで、????
-
 
 ### socket
 
@@ -159,7 +157,7 @@ int main(int argc, char* argv[]) {
 
   while (1) {
     int peerFd = accept(fd, NULL, NULL);
-    char *data = "boom";
+    char* data = "Good day!";
     write(peerFd, data, strlen(data));
     close(peerFd);
   }
@@ -206,7 +204,7 @@ if (listen(fd, 100) < 0) {
 ```c
 while (1) {
   int peerFd = accept(fd, NULL, NULL);
-  char *data = "boom";
+  char* data = "Today is another good day!";
   write(peerFd, data, strlen(data));
   close(peerFd);
 }
@@ -265,7 +263,7 @@ inet_aton("127.0.0.1", &addr.sin_addr);
 `connect` 関数を呼んでサーバに接続する。接続に成功すると、ソケットディスクリプタを使って読み書きが利用可能になる。
 
 ```c
-if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
   print_error_and_exit();
 }
 ```

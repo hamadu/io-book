@@ -138,5 +138,31 @@ while (1) {
 
 
 ```c
+#include <stdio.h>
+#include <sys/epoll.h>
 
+#define MAX_EVENTS 10
+
+int main(int argc, char** argv) {
+  int epollfd = epoll_create(10);
+
+  struct epoll_event ev;
+  ev.events = EPOLLIN;
+  ev.data.fd = fd;
+  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sock, &ev) == -1) {
+    // error
+  }
+
+  struct epoll_event events[MAX_EVENTS];
+  while (1) {
+    int nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+    if (ndfs == -1) {
+      // error
+    }
+    for (int i = 0 ; i < nfds ; i++) {
+      int fd = events[i].data.fd;
+      // process fd here
+    }
+  }
+}
 ```

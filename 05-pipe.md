@@ -100,8 +100,9 @@ int main(int argc, char* argv[]) {
 
   pid_t result = fork();
   if (result == 0) {
-    close(readFd);
     dup2(writeFd, STDOUT_FILENO);
+    close(readFd);
+    close(writeFd);
     execl("/bin/ls", "al", (char *)NULL);
   } else {
     close(writeFd);
@@ -120,7 +121,7 @@ int main(int argc, char* argv[]) {
 
 まず親プロセス側でパイプを作成し、`fork` して子プロセスを作る。
 
-子プロセス側は、まずパイプの書き込み口を標準出力としてコピーする。ここで `execl` を実行すると、いま実行しているプログラムが `/bin/ls` で置き換わるが、その標準出力はパイプの書き込み口のままのため、`/bin/ls` の標準出力がパイプに書き込まれることになる。
+子プロセス側は、まずパイプの書き込み口を標準出力としてコピーする。ここで `execl` を実行すると、いま実行しているプログラムが `/bin/ls` で置き換わる。このとき、プロセスがオープンしていたファイルディスクリプタはそのまま残るため、標準出力はパイプの書き込み口を指している。その結果、`/bin/ls` の標準出力がパイプに書き込まれることになる。
 
 親プロセス側の処理は例1と同じため説明は省く。
 

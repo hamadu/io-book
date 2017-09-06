@@ -8,7 +8,7 @@
 
 ## OSはファイルをどう管理するか
 
-OSはシステム全体で操作中のファイルの集合を管理している。各要素はファイルテーブルエントリ(?)と呼ばれており、ファイルシステム上のノードに紐付けられている。プロセスがファイルを開くと、対応するファイルテーブルエントリが作られる。複数のプロセスで同じファイルを開いた場合、複数のファイルテーブルエントリが、同じファイルを指すこともある。このケースの挙動は「プロセスとスレッド」の章で確認する。
+OSはシステム全体で操作中のファイルの集合を管理している。各要素はファイルテーブルエントリ(?)と呼ばれており、ファイルシステム上のノードに紐付けられている。プロセスがファイルを開くと、対応するファイルテーブルエントリが作られる。複数のプロセスで同じファイルを開いた場合、複数のファイルテーブルエントリが、同じファイルを指すこともある。このケースの挙動は「プロセス」「スレッド」の章で確認する。
 
 ## ファイルI/O関連システムコール群
 
@@ -85,7 +85,7 @@ lseek関数を使うと、ファイルの読み書きオフセットを変更で
 
 ### close
 
-オープンしたファイルをクローズするには、close()関数を使う。
+オープンしたファイルをクローズするには、`close` 関数を使う。
 
 > close - ファイルディスクリプターをクローズする
 > ```c
@@ -106,27 +106,27 @@ lseek関数を使うと、ファイルの読み書きオフセットを変更で
 #include <fcntl.h>
 
 int main(int argc, char* argv[]) {
-int srcFd = open("./src.txt", O_RDONLY);
-if (srcFd == -1) {
-return 1;
-}
+  int srcFd = open("./src.txt", O_RDONLY);
+  if (srcFd == -1) {
+    return 1;
+  }
 
-int dstFd = open("./dst.txt", O_WRONLY | O_CREAT);
-if (dstFd == -1) {
-return 1;
-}
+  int dstFd = open("./dst.txt", O_WRONLY | O_CREAT);
+  if (dstFd == -1) {
+    return 1;
+  }
 
-char buffer[16];
-while (1) {
-int num = read(srcFd, buffer, 16);
-if (num == 0) {
-break;
-}
-write(dstFd, buffer, num);
-}
-close(srcFd);
-close(dstFd);
-return 0;
+  char buffer[16];
+  while (1) {
+    int num = read(srcFd, buffer, 16);
+    if (num == 0) {
+      break;
+    }
+    write(dstFd, buffer, num);
+  }
+  close(srcFd);
+  close(dstFd);
+  return 0;
 }
 ```
 
@@ -162,7 +162,7 @@ $ diff src.txt dst.txt
 
 ### エラーの表示
 
-先に示したプログラムを、例えば `src.txt` を削除した状態で走らせると、うんともすんとも言わずに終了する。これではあまりにも不親切なので、open関数実行後、エラーの種別に応じたメッセージを表示して終了するように改造しよう。
+先に示したプログラムを、例えば `src.txt` を削除した状態で走らせると、うんともすんとも言わずに終了する。これではあまりにも不親切なので、`open` 関数実行後、エラーの種別に応じたメッセージを表示して終了するように改造しよう。
 
 ```c
 #include <unistd.h>
@@ -173,32 +173,32 @@ $ diff src.txt dst.txt
 #include <stdlib.h>
 
 void error_and_exit() {
-printf("error(%d): %s\n", errno, strerror(errno));
-exit(EXIT_FAILURE);
+  printf("error(%d): %s\n", errno, strerror(errno));
+  exit(EXIT_FAILURE);
 }
 
 int main(int argc, char* argv[]) {
-int srcFd = open("./src.txt", O_RDONLY);
-if (srcFd == -1) {
-error_and_exit();
-}
+  int srcFd = open("./src.txt", O_RDONLY);
+  if (srcFd == -1) {
+    error_and_exit();
+  }
 
-int dstFd = open("./dst.txt", O_WRONLY | O_CREAT);
-if (dstFd == -1) {
-error_and_exit();
-}
+  int dstFd = open("./dst.txt", O_WRONLY | O_CREAT);
+  if (dstFd == -1) {
+    error_and_exit();
+  }
 
-char buffer[16];
-while (1) {
-int num = read(srcFd, buffer, 16);
-if (num == 0) {
-break;
-}
-write(dstFd, buffer, num);
-}
-close(srcFd);
-close(dstFd);
-return 0;
+  char buffer[16];
+  while (1) {
+    int num = read(srcFd, buffer, 16);
+    if (num == 0) {
+      break;
+    }
+    write(dstFd, buffer, num);
+  }
+  close(srcFd);
+  close(dstFd);
+  return 0;
 }
 ```
 

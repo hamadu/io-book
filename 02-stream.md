@@ -105,8 +105,6 @@ FILE* fopen(const char *filename, const char *opentype)
 `printf` 関数はフォーマットされた文字列をストリームに書き込む関数群の仲間で、他にも引数としてストリームを受け取るものなどがある。
 
 
-
-
 詳しくはマニュアルを。[→printf(3)](https://linuxjm.osdn.jp/html/LDP_man-pages/man3/printf.3.html)
 
 ### 入出力のリダイレクト
@@ -156,12 +154,12 @@ void print_error_and_exit() {
 }
 
 int main(int argc, char* argv[]) {
-  FILE *src = fopen("./src.txt", "r");
+  FILE* src = fopen("./src.txt", "r");
   if (src == NULL) {
     print_error_and_exit();
   }
 
-  FILE *dst = fopen("./dst.txt", "w");
+  FILE* dst = fopen("./dst.txt", "w");
   if (dst == NULL) {
     print_error_and_exit();
   }
@@ -187,7 +185,9 @@ int main(int argc, char* argv[]) {
 $ time (プログラム名)
 ```
 
-筆者の環境()では以下の通りとなった。ストリーム関数を用いたほうが合計実行時間が短い。前章で用いたプログラム(copy.c)のバッファ長は 16 と短く、`write` システムコールが発行される回数が多くなってしまうのでシステムCPU時間が大きくなっている。バッファをより長くすれば、システムCPU時間が減り合計実行時間の差が縮まるだろう。一方、本章で作ったプログラム(stream_copy.c)は文字を1文字ずつコピーする形式なので、ユーザ側での命令実行数が多いためユーザCPU時間が長く出ているが、`write` システムコールを発行する回数は少ないためシステムCPU時間は短い。
+筆者の環境()では以下の通りとなった。ユーザCPU時間とは、
+
+ストリーム関数を用いたほうが合計実行時間が短い。前章で用いたプログラム(copy.c)のバッファ長は 16 と短く、`write` システムコールが発行される回数が多くなるのでシステムCPU時間が大きくなっている。バッファをより長くすれば、システムCPU時間が減り合計実行時間の差が縮まるだろう。一方、本章で作ったプログラム(stream_copy.c)は文字を1文字ずつコピーする形式なので、ユーザ側での命令実行数が多いためユーザCPU時間が長く出ているが、`write` システムコールを発行する回数は少ないためシステムCPU時間は短い。
 
 | 種類 | ユーザCPU時間 | システムCPU時間 | 合計実行時間 |
 | :--- | :--- | :--- | :--- |
